@@ -177,9 +177,10 @@ export default function PokemonQuiz() {
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [gameStarted, setGameStarted] = useState(false)
   const [gameFinished, setGameFinished] = useState(false)
-  const [selectedGenerations, setSelectedGenerations] = useState<number[]>([1, 2, 3]) // Default to the first 3 generations
+  const [selectedGenerations, setSelectedGenerations] = useState<number[]>([]) // Default to the first 3 generations
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1)
   const [allPokemonData, setAllPokemonData] = useState<Pokemon[]>([]) // Store all data from JSON
+  const [pokemonPerRound, setPokemonPerRound] = useState<number>(50) // Default value for Pokémon per round
 
   // Reference for the suggestions container
   const suggestionsContainerRef = useRef<HTMLDivElement>(null);
@@ -247,14 +248,17 @@ export default function PokemonQuiz() {
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
 
-    setPokemonQueue(shuffled)
-    setCurrentPokemon(shuffled[0])
+    // Limit the queue to the specified number of Pokémon per round
+    const limitedQueue = shuffled.slice(0, Math.min(pokemonPerRound, shuffled.length));
+    
+    setPokemonQueue(limitedQueue)
+    setCurrentPokemon(limitedQueue[0])
     setShowResult(null)
     setLoading(false)
     setGameStarted(true)
     setLoadingProgress(100) // Indicate completion
 
-  }, [selectedGenerations, allPokemonData]);
+  }, [selectedGenerations, allPokemonData, pokemonPerRound]);
 
   // Filter suggestions based on user input
   useEffect(() => {
@@ -340,8 +344,12 @@ export default function PokemonQuiz() {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    setPokemonQueue(shuffled)
-    setCurrentPokemon(shuffled[0])
+    
+    // Limit the queue to the specified number of Pokémon per round
+    const limitedQueue = shuffled.slice(0, Math.min(pokemonPerRound, shuffled.length));
+
+    setPokemonQueue(limitedQueue)
+    setCurrentPokemon(limitedQueue[0])
     setScore({ correct: 0, total: 0 })
     setShowResult(null)
     setCorrectAnswer("")
@@ -459,6 +467,15 @@ export default function PokemonQuiz() {
 
   // Generation selection screen
   if (!gameStarted && !loading && !gameFinished) {
+    // Calculate total Pokémon available from selected generations
+    const totalAvailablePokemon = selectedGenerations.reduce((total, genId) => {
+      const gen = POKEMON_GENERATIONS.find(g => g.id === genId);
+      if (gen) {
+        return total + (gen.range[1] - gen.range[0] + 1);
+      }
+      return total;
+    }, 0);
+    
     return (
       <div className="min-h-screen bg-gradient-to-b from-indigo-500 to-purple-600 flex items-center justify-center p-4 relative">
         {/* Background with Poké Ball pattern */}
@@ -469,7 +486,7 @@ export default function PokemonQuiz() {
           }}></div>
         </div>
         
-        <Card className="max-w-md w-full bg-white/90 backdrop-blur-sm relative z-10">
+        <Card className="max-w-4xl w-full bg-white/90 backdrop-blur-sm relative z-10">
           <CardContent className="p-6">
             <h1 className="text-2xl font-bold text-center mb-6">Who&apos;s That Pokémon?</h1>
             <h2 className="text-xl font-semibold mb-4">Select Generations</h2>
@@ -483,7 +500,7 @@ export default function PokemonQuiz() {
               </Button>
             </div>
             
-            <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 mb-6">
               {POKEMON_GENERATIONS.map((gen) => (
                 <div
                   key={gen.id}
@@ -506,6 +523,48 @@ export default function PokemonQuiz() {
               ))}
             </div>
             
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold mb-2">Pokémon per Round</h2>
+              <div className="flex flex-col md:flex-row gap-4 items-center">
+                <div className="w-full md:w-3/4">
+                  <input 
+                    type="range"
+                    min="1"
+                    max={totalAvailablePokemon || 100}
+                    value={pokemonPerRound}
+                    onChange={(e) => setPokemonPerRound(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>1</span>
+                    <span>{Math.floor(totalAvailablePokemon / 2)}</span>
+                    <span>{totalAvailablePokemon || 100}</span>
+                  </div>
+                </div>
+                <div className="flex items-center md:w-1/4">
+                  <Input
+                    type="number"
+                    min="1"
+                    max={totalAvailablePokemon || 100}
+                    value={pokemonPerRound}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (!isNaN(value) && value >= 1 && value <= (totalAvailablePokemon || 100)) {
+                        setPokemonPerRound(value);
+                      }
+                    }}
+                    className="w-24 text-center"
+                  />
+                  <span className="ml-2 text-sm text-gray-600">Pokémon</span>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                {pokemonPerRound === totalAvailablePokemon ? 
+                  "All available Pokémon will be included in this round." : 
+                  `${pokemonPerRound} random Pokémon will be selected from the available ${totalAvailablePokemon}.`}
+              </p>
+            </div>
+            
             <div className="text-center">
               <Button 
                 onClick={preparePokemonForGame} 
@@ -524,13 +583,7 @@ export default function PokemonQuiz() {
               
               <p className="text-sm text-gray-500 mt-4">
                 {selectedGenerations.length > 0 
-                  ? `Pokémon selected: ${selectedGenerations.reduce((total, genId) => {
-                      const gen = POKEMON_GENERATIONS.find(g => g.id === genId);
-                      if (gen) {
-                        return total + (gen.range[1] - gen.range[0] + 1);
-                      }
-                      return total;
-                    }, 0)} in total`
+                  ? `Total Pokémon available: ${totalAvailablePokemon}`
                   : "No Pokémon selected"}
               </p>
             </div>
