@@ -177,13 +177,88 @@ export default function PokemonQuiz() {
   const [loadingProgress, setLoadingProgress] = useState(0)
   const [gameStarted, setGameStarted] = useState(false)
   const [gameFinished, setGameFinished] = useState(false)
-  const [selectedGenerations, setSelectedGenerations] = useState<number[]>([]) // Default to the first 3 generations
+  const [selectedGenerations, setSelectedGenerations] = useState<number[]>([])
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1)
   const [allPokemonData, setAllPokemonData] = useState<Pokemon[]>([]) // Store all data from JSON
   const [pokemonPerRound, setPokemonPerRound] = useState<number>(50) // Default value for Pokémon per round
 
   // Reference for the suggestions container
   const suggestionsContainerRef = useRef<HTMLDivElement>(null);
+  const hasInitialLoadCompletedRef = useRef(false); // Ref to track if initial load and state settling is complete
+
+  // Load settings from localStorage on initial render
+  useEffect(() => {
+    let loadedSelectedGenerations: number[] = [1, 2, 3]; // Default
+    const storedGenerations = localStorage.getItem("selectedGenerations")
+    if (storedGenerations) {
+      try {
+        const parsedGenerations = JSON.parse(storedGenerations)
+        if (Array.isArray(parsedGenerations) && parsedGenerations.every(item => typeof item === 'number')) {
+          loadedSelectedGenerations = parsedGenerations.length > 0 ? parsedGenerations : [1, 2, 3];
+        }
+      } catch (error) {
+        console.error("Error parsing selectedGenerations from localStorage:", error)
+        // Default already set
+      }
+    }
+    setSelectedGenerations(loadedSelectedGenerations);
+
+    let loadedPokemonPerRound = 50; // Default
+    const storedPokemonPerRound = localStorage.getItem("pokemonPerRound")
+    if (storedPokemonPerRound) {
+      const parsedPokemonPerRound = parseInt(storedPokemonPerRound, 10)
+      if (!isNaN(parsedPokemonPerRound) && parsedPokemonPerRound > 0) {
+        loadedPokemonPerRound = parsedPokemonPerRound;
+      }
+    }
+    setPokemonPerRound(loadedPokemonPerRound);
+
+    // Signal that initial load and state setting is done after current execution cycle
+    const timer = setTimeout(() => {
+      hasInitialLoadCompletedRef.current = true;
+    }, 0);
+
+    return () => clearTimeout(timer); // Cleanup timeout
+  }, [])
+
+  // Save selectedGenerations to localStorage when it changes
+  useEffect(() => {
+    if (hasInitialLoadCompletedRef.current || localStorage.getItem("selectedGenerations")) {
+       localStorage.setItem("selectedGenerations", JSON.stringify(selectedGenerations))
+    }
+  }, [selectedGenerations])
+
+  // Save pokemonPerRound to localStorage when it changes
+  useEffect(() => {
+    if (hasInitialLoadCompletedRef.current) { // Only save after initial load to prevent overwriting with default before load
+      localStorage.setItem("pokemonPerRound", pokemonPerRound.toString())
+    }
+  }, [pokemonPerRound])
+
+  // Update pokemonPerRound when selectedGenerations change, *after* initial load is fully complete
+  useEffect(() => {
+    if (!hasInitialLoadCompletedRef.current) {
+      return; // Don't run if initial load and settling isn't fully complete
+    }
+
+    // This logic runs for user-driven changes to selectedGenerations after initial load
+    if (selectedGenerations.length > 0) {
+      const newTotalAvailablePokemon = selectedGenerations.reduce((total, genId) => {
+        const gen = POKEMON_GENERATIONS.find(g => g.id === genId);
+        if (gen) {
+          return total + (gen.range[1] - gen.range[0] + 1);
+        }
+        return total;
+      }, 0);
+      
+      if (newTotalAvailablePokemon > 0) {
+        setPokemonPerRound(newTotalAvailablePokemon);
+      }
+    } else {
+      // If no generations are selected by the user after initial load, reset pokemonPerRound to default
+      setPokemonPerRound(50); 
+    }
+  }, [selectedGenerations]);
 
   // Effect to load all Pokémon data from the static JSON file once
   useEffect(() => {
@@ -254,9 +329,15 @@ export default function PokemonQuiz() {
     setPokemonQueue(limitedQueue)
     setCurrentPokemon(limitedQueue[0])
     setShowResult(null)
-    setLoading(false)
     setGameStarted(true)
-    setLoadingProgress(100) // Indicate completion
+    for (let i = 0; i < 100; i++) {
+      setTimeout(() => {
+        setLoadingProgress(i);
+        if (i === 99) {
+          setLoading(false);
+        }
+      }, i * 10);
+    }    
 
   }, [selectedGenerations, allPokemonData, pokemonPerRound]);
 
