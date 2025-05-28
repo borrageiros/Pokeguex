@@ -239,7 +239,14 @@ export default function PokemonQuiz() {
     }
 
     setAllPokemon(pokemonForSelectedGenerations) // This state now holds only the Pokémon for the current game
-    const shuffled = [...pokemonForSelectedGenerations].sort(() => Math.random() - 0.5)
+    
+    // Fisher-Yates shuffle algorithm
+    const shuffled = [...pokemonForSelectedGenerations];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
     setPokemonQueue(shuffled)
     setCurrentPokemon(shuffled[0])
     setShowResult(null)
@@ -327,7 +334,12 @@ export default function PokemonQuiz() {
   }, [pokemonQueue])
 
   const resetGame = () => {
-    const shuffled = [...allPokemon].sort(() => Math.random() - 0.5)
+    // Fisher-Yates shuffle algorithm
+    const shuffled = [...allPokemon];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
     setPokemonQueue(shuffled)
     setCurrentPokemon(shuffled[0])
     setScore({ correct: 0, total: 0 })
