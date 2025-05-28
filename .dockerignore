@@ -1,0 +1,34 @@
+# Docker specific ignores
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Git specific ignores
+.git
+.gitignore
+
+# Node modules - will be installed in Docker build
+node_modules
+
+# Next.js build artifacts - will be generated in Docker build
+.next
+out
+
+# Local development stuff
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.env*
+
+# OS specific
+.DS_Store
+
+# TypeScript build info
+*.tsbuildinfo
+
+# IDE / Editor specific (examples)
+.vscode/
+.idea/
+
+public/pokemon-data.json 
